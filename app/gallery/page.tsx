@@ -26,6 +26,7 @@ import {
 export default function GalleryPage() {
   const { getGalleryItems } = useGallery()
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([])
+  const [bgImage, setBgImage] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [jobModalOpen, setJobModalOpen] = useState(false)
   const [quoteModalOpen, setQuoteModalOpen] = useState(false)
@@ -38,6 +39,8 @@ export default function GalleryPage() {
       try {
         const data = await getGalleryItems()
         setGalleryItems(data)
+  const galleryBg = data.find(i => i.imageType === 'background-gallery')
+  if (galleryBg) setBgImage(galleryBg.imageUrl)
       } catch (err) {
         setError("Error al cargar la galería")
         console.error(err)
@@ -66,7 +69,7 @@ export default function GalleryPage() {
       <section className="relative h-[40vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <Image
-            src="https://images.unsplash.com/photo-1565766046621-5548ffdf30af?q=80&w=2070&auto=format&fit=crop"
+            src={bgImage || "https://images.unsplash.com/photo-1565766046621-5548ffdf30af?q=80&w=2070&auto=format&fit=crop"}
             alt="Murray & Son gallery"
             fill
             className="object-cover brightness-[0.7]"
@@ -84,10 +87,12 @@ export default function GalleryPage() {
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-12">Our Work</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {galleryItems.length === 0 ? (
-              <div className="col-span-3 text-center text-gray-500">No gallery items found.</div>
-            ) : (
-              galleryItems.map((item: any, index: number) => (
+            {galleryItems.filter(i => i.imageType !== 'background-main' && i.imageType !== 'background-gallery').length === 0 ? (
+                <div className="col-span-3 text-center text-gray-500">No gallery items found.</div>
+              ) : (
+                galleryItems
+                  .filter(i => i.imageType !== 'background-main' && i.imageType !== 'background-gallery')
+                  .map((item: any, index: number) => (
                 <div key={index} className="rounded-lg border bg-white p-4 shadow-md">
                   <div className="relative h-64 w-full mb-4 rounded-lg overflow-hidden">
                     <Image

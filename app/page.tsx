@@ -3,14 +3,28 @@
 import { Button } from "@/components/ui/button"
 
 import { useState, useEffect } from "react"
+import { useGallery, type GalleryItem } from "@/hooks/useApi"
 import Image from "next/image"
 import { OurServices } from "@/components/our-services" // Importa el nuevo componente
 import { TestimonialForm } from "@/components/testimonial-form" // Asegúrate de que TestimonialForm esté aquí
 
 export default function Page() {
   const [testimonialModalOpen, setTestimonialModalOpen] = useState(false)
+  const { getGalleryItems } = useGallery()
+  const [bgImage, setBgImage] = useState<string | null>(null)
 
   useEffect(() => {
+    const loadBg = async () => {
+      try {
+        const items = await getGalleryItems()
+        const mainBg = items.find((i: GalleryItem) => i.imageType === 'background-main')
+        if (mainBg) setBgImage(mainBg.imageUrl)
+      } catch (err) {
+        console.error('Failed to load gallery background:', err)
+      }
+    }
+    loadBg()
+
     // Add CSS to hide scrollbar but keep functionality
     const style = document.createElement("style")
     style.textContent = `
@@ -61,8 +75,8 @@ export default function Page() {
       <section className="relative h-[90vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <Image
-            src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2070&auto=format&fit=crop"
-            alt="Canadian mountain landscape with wooden cabin"
+            src={bgImage || "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2070&auto=format&fit=crop"}
+            alt="Hero background"
             fill
             className="object-cover brightness-[0.65]"
             priority

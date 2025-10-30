@@ -2,7 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
-import { PlusCircle, Trash2 } from "lucide-react"
+import { PlusCircle, Trash2, Edit2 } from "lucide-react"
 
 export default function GalleryTab({
   galleryItems,
@@ -12,6 +12,7 @@ export default function GalleryTab({
   setNewGalleryItem,
   handleAddGalleryItem,
   handleDeleteGalleryItem,
+  onEditGalleryItem,
 }: any) {
   return (
     <Card>
@@ -46,9 +47,14 @@ export default function GalleryTab({
                 <TableCell className="font-medium">{item.title}</TableCell>
                 <TableCell>{item.description}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="destructive" size="sm" onClick={() => handleDeleteGalleryItem(item._id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button size="sm" onClick={() => onEditGalleryItem(item)}>
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteGalleryItem(item._id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

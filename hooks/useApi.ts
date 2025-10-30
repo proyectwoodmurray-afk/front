@@ -22,6 +22,7 @@ export interface GalleryItem {
   title: string
   description: string
   imageUrl: string
+  imageType?: 'background-main' | 'background-gallery'
 }
 
 export interface CreateGalleryItem extends Omit<GalleryItem, "_id"> {}
@@ -239,14 +240,16 @@ export function useGallery() {
   // Si necesitas esta funcionalidad, deberás añadirla en tu backend NestJS.
   // Por ahora, esta función no hará una llamada a la API real.
   const updateGalleryItem = useCallback(async (_id: string, formData: FormData): Promise<GalleryItem> => {
-    console.warn(
-      "updateGalleryItem: No hay un endpoint de API para actualizar la galería. Simulación de actualización.",
-    )
-    await new Promise((resolve) => setTimeout(resolve, 500)) // Simular retraso
-    const title = formData.get("title") as string
-    const description = formData.get("description") as string
-    const imageUrl = formData.get("imageUrl") as string // Asume que la URL de la imagen se pasa si no se sube una nueva
-    return { _id, title, description, imageUrl } // Devuelve el item actualizado simulado
+    try {
+      const updated = await fetchApi<GalleryItem>(`/gallery/${_id}`, {
+        method: 'PATCH',
+        body: formData,
+      })
+      return updated
+    } catch (error) {
+      console.error('Error updating gallery item:', error)
+      throw error
+    }
   }, [])
 
   const deleteGalleryItem = useCallback(async (_id: string): Promise<void> => {

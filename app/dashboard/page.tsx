@@ -3,6 +3,7 @@
 import { uploadImageToGallery } from '@/lib/upload-helper'
 import type React from "react"
 import { useState, useEffect, useCallback } from "react"
+import { fetchApi } from '@/lib/api-config'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
@@ -47,7 +48,7 @@ import {
 
 export default function DashboardPage() {
   const { user, loading: authLoading, isAuthenticated, logout } = useAuth()
-  const { getGalleryItems, createGalleryItem, deleteGalleryItem } = useGallery()
+  const { getGalleryItems, createGalleryItem, deleteGalleryItem, updateGalleryItem } = useGallery()
   const { getAllServices, createService, updateService, deleteService } = useServices()
   const { getAllTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, approveTestimonial } = useTestimonials()
   const { getCompanyInfo, updateCompanyInfo } = useCompanyInfo()
@@ -72,6 +73,11 @@ export default function DashboardPage() {
 
   // Form states for adding/editing
   const [newGalleryItem, setNewGalleryItem] = useState({ title: "", description: "", image: null as File | null })
+  const [newGalleryImageType, setNewGalleryImageType] = useState<'background-main' | 'background-gallery'>('background-main')
+  const [isEditGalleryModalOpen, setIsEditGalleryModalOpen] = useState(false)
+  const [editingGalleryItem, setEditingGalleryItem] = useState<GalleryItem | null>(null)
+  const [editingGalleryImageFile, setEditingGalleryImageFile] = useState<File | null>(null)
+  const [editingGalleryImageType, setEditingGalleryImageType] = useState<'background-main' | 'background-gallery'>('background-main')
   const [newService, setNewService] = useState({
     title: "",
     description: "",
@@ -107,9 +113,26 @@ export default function DashboardPage() {
   const fetchApplications = useCallback(async () => {
     setApplicationsLoading(true)
     try {
-      const res = await fetch("/api/workwithus") // O usa fetchApi("/workwithus") si tienes fetchApi configurado
-      const data = await res.json()
-      setApplications(data)
+      // Use centralized fetchApi for consistent error handling
+      const data = await fetchApi('/workwithus', { method: 'GET' })
+
+      // Normalize possible MongoDB extended JSON (e.g., { _id: { $oid: '...' }, createdAt: { $date: '...' } })
+      const normalize = (raw: any) => {
+        const item: any = { ...raw }
+        if (item._id && typeof item._id === 'object' && ('$oid' in item._id)) {
+          item._id = item._id.$oid
+        }
+        if (item.createdAt && typeof item.createdAt === 'object' && ('$date' in item.createdAt)) {
+          item.createdAt = item.createdAt.$date
+        }
+        if (item.updatedAt && typeof item.updatedAt === 'object' && ('$date' in item.updatedAt)) {
+          item.updatedAt = item.updatedAt.$date
+        }
+        return item
+      }
+
+      const normalized = Array.isArray(data) ? data.map(normalize) : []
+      setApplications(normalized)
       setApplicationsError(null)
     } catch (err: any) {
       setApplications([])
@@ -176,6 +199,9 @@ export default function DashboardPage() {
       formData.append("title", newGalleryItem.title)
       formData.append("description", newGalleryItem.description)
       formData.append("image", newGalleryItem.image)
+      
+  // Añadir imageType al FormData
+  formData.append("imageType", newGalleryImageType)
       await createGalleryItem(formData)
       setNewGalleryItem({ title: "", description: "", image: null })
       setIsAddGalleryModalOpen(false)
@@ -195,6 +221,34 @@ export default function DashboardPage() {
       await fetchData()
     } catch (error) {
       console.error("Error deleting gallery item:", error)
+    } finally {
+      setDataLoading(false)
+    }
+  }
+
+  const handleOpenEditGallery = (item: GalleryItem) => {
+    setEditingGalleryItem(item)
+    setEditingGalleryImageType(item.imageType || 'background-main')
+    setEditingGalleryImageFile(null)
+    setIsEditGalleryModalOpen(true)
+  }
+
+  const handleSaveEditGallery = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingGalleryItem) return
+    setDataLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('title', editingGalleryItem.title)
+      formData.append('description', editingGalleryItem.description)
+      formData.append('imageType', editingGalleryImageType)
+      if (editingGalleryImageFile) formData.append('image', editingGalleryImageFile)
+      await updateGalleryItem(editingGalleryItem._id, formData)
+      setIsEditGalleryModalOpen(false)
+      setEditingGalleryItem(null)
+      await fetchData()
+    } catch (err) {
+      console.error('Error updating gallery item:', err)
     } finally {
       setDataLoading(false)
     }
@@ -441,7 +495,8 @@ export default function DashboardPage() {
                 newGalleryItem={newGalleryItem}
                 setNewGalleryItem={setNewGalleryItem}
                 handleAddGalleryItem={handleAddGalleryItem}
-                handleDeleteGalleryItem={handleDeleteGalleryItem}
+                  handleDeleteGalleryItem={handleDeleteGalleryItem}
+                  onEditGalleryItem={handleOpenEditGallery}
               />
             </TabsContent>
 
@@ -529,6 +584,21 @@ export default function DashboardPage() {
                 required
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="gallery-image-type">Image Type</Label>
+              <Select
+                value={newGalleryImageType}
+                onValueChange={(value) => setNewGalleryImageType(value as 'background-main' | 'background-gallery')}
+              >
+                <SelectTrigger id="gallery-image-type">
+                  <SelectValue placeholder="Select image type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="background-main">For Main</SelectItem>
+                  <SelectItem value="background-gallery">For Gallery</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddGalleryModalOpen(false)}>
                 Cancel
@@ -540,6 +610,48 @@ export default function DashboardPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+        {/* Edit Gallery Item Modal */}
+        <Dialog open={isEditGalleryModalOpen} onOpenChange={setIsEditGalleryModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Gallery Item</DialogTitle>
+              <DialogDescription>Update image type or replace image.</DialogDescription>
+            </DialogHeader>
+            {editingGalleryItem && (
+              <form onSubmit={handleSaveEditGallery} className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>Title</Label>
+                  <Input value={editingGalleryItem.title} onChange={(e) => setEditingGalleryItem({ ...editingGalleryItem, title: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Description</Label>
+                  <Textarea value={editingGalleryItem.description} onChange={(e) => setEditingGalleryItem({ ...editingGalleryItem, description: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Replace Image (optional)</Label>
+                  <Input type="file" accept="image/*" onChange={(e) => setEditingGalleryImageFile(e.target.files?.[0] || null)} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Image Type</Label>
+                  <Select value={editingGalleryImageType} onValueChange={(v) => setEditingGalleryImageType(v as 'background-main' | 'background-gallery')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="background-main">For Main</SelectItem>
+                      <SelectItem value="background-gallery">For Gallery</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsEditGalleryModalOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={dataLoading}>{dataLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Save'}</Button>
+                </DialogFooter>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
 
       {/* Add Service Modal */}
       <Dialog open={isAddServiceModalOpen} onOpenChange={setIsAddServiceModalOpen}>
