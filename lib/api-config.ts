@@ -56,8 +56,9 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
   let responseText: string | null = null;
 
   try {
-    // 1. Construir URL
-    const url = `${API_BASE_URL}${endpoint}`;
+    // 1. Construir URL: normalizar base (sin slash final) y asegurar un único slash entre base y endpoint
+    const base = API_BASE_URL.replace(/\/$/, '');
+    const url = endpoint.startsWith('/') ? `${base}${endpoint}` : `${base}/${endpoint}`;
     
     // 2. Preparar headers
     const headers = new Headers();
@@ -82,12 +83,13 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
     }
 
     // 5. Configurar la petición
-    const config: RequestInit = {
+    // Por defecto no incluir credenciales en fetch (evita problemas de cookies entre dominios).
+    // Si un caller necesita credenciales, puede pasar { credentials: 'include' } en options.
+    const config: RequestInit = Object.assign({
       method: options.method || 'GET',
       headers,
-      credentials: 'include',
       body: options.body
-    };
+    }, options);
 
     // Logging de la petición
     console.log('📡 Request:', {
